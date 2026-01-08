@@ -1,0 +1,76 @@
+services:
+  # Protocol Buffer コード生成サービス
+  protoc:
+    build:
+      context: .
+      dockerfile: dev/protocol-buffer/Dockerfile
+    profiles:
+      - tools
+    volumes:
+      - .:/workspace
+    command: sh /workspace/dev/protocol-buffer/build.sh
+
+  # MySQL データベース
+  mysql:
+    build: ./dev/backend/docker/mysql
+    image: ringo_mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-ringo}
+    ports:
+      - "${DB_PORT:-13306}:3306"
+    volumes:
+      - ./dev/backend/docker/mysql/init:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-ringo}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - ringo_network
+
+  # Backend（本番用）
+  backend:
+    build:
+      context: ./dev/backend
+      dockerfile: Dockerfile
+    image: ringo_backend
+    ports:
+      - "${BACKEND_PORT:-4444}:4444"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-ringo}
+      - DB_NAME=${DB_NAME:-ringo}
+      - SERVER_PORT=4444
+      - SECRET_KEY=${SECRET_KEY:-secret}
+    networks:
+      - ringo_network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./dev/frontend
+      dockerfile: Dockerfile
+    image: ringo_frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./dev/frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:4444}
+    networks:
+      - ringo_network
+
+volumes:
+  mysql_data:
+
+networks:
+  ringo_network:
+    driver: bridge

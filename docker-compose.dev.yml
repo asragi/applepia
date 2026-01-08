@@ -1,0 +1,29 @@
+version: '3.8'
+
+# 開発用オーバーライド設定
+# 使用方法: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    build:
+      context: ./dev/backend
+      dockerfile: Dockerfile.dev  # 開発用Dockerfileに変更
+    image: ringo_backend_dev
+    ports:
+      - "${BACKEND_PORT:-4444}:4444"
+      - "2345:2345"  # デバッガーポート追加
+    volumes:
+      # ホットリロード用のボリュームマウント
+      - ./dev/backend:/app
+      - go_modules:/go/pkg/mod
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-ringo}
+      - DB_NAME=${DB_NAME:-ringo}
+      - SERVER_PORT=4444
+      - SECRET_KEY=${SECRET_KEY:-secret}
+
+volumes:
+  go_modules:

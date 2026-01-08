@@ -6,7 +6,15 @@
       "Bash(wc:*)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "Bash(protoc:*)"
+      "Bash(protoc:*)",
+      "Bash(docker build:*)",
+      "Bash(docker compose:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(go build:*)",
+      "Bash(make help:*)",
+      "Bash(make test:*)",
+      "Bash(make backend-only:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

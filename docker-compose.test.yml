@@ -1,0 +1,46 @@
+# テスト用オーバーライド設定
+# 使用方法: docker compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit
+
+services:
+  mysql:
+    # テスト用設定（ベースのmysql_dataと競合しないようにする）
+    volumes:
+      - ./dev/backend/docker/mysql/init:/docker-entrypoint-initdb.d
+    environment:
+      - MYSQL_ROOT_PASSWORD=test
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --skip-log-bin
+
+  backend:
+    build:
+      context: ./dev/backend
+      dockerfile: Dockerfile.dev
+    image: ringo_backend_test
+    command: >
+      sh -c "
+        cd initialize && wire && cd .. &&
+        go test -v -coverprofile=coverage.out ./... &&
+        go tool cover -html=coverage.out -o coverage.html
+      "
+    volumes:
+      - ./dev/backend:/app
+      - go_modules:/go/pkg/mod
+      - test_coverage:/app/coverage
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=test
+      - DB_NAME=ringo
+      - SERVER_PORT=4444
+      - SECRET_KEY=test-secret
+      - DOCKER_TEST_DB_HOST=host.docker.internal
+
+  # フロントエンドはテスト実行時は不要
+  frontend:
+    profiles:
+      - manual
+
+volumes:
+  test_coverage:
+  go_modules:
