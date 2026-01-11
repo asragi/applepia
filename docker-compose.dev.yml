@@ -11,6 +11,7 @@ services:
     image: ringo_backend_dev
     ports:
       - "${BACKEND_PORT:-4444}:4444"
+      - "${HTTP_PORT:-8080}:8080"
       - "2345:2345"  # デバッガーポート追加
     volumes:
       # ホットリロード用のボリュームマウント
@@ -24,6 +25,10 @@ services:
       - DB_NAME=${DB_NAME:-ringo}
       - SERVER_PORT=4444
       - SECRET_KEY=${SECRET_KEY:-secret}
+      - HTTP_PORT=8080
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:5173/auth/callback}
 
 volumes:
   go_modules:

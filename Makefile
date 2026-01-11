@@ -50,6 +50,11 @@ clean:
 logs:
 	docker compose logs -f
 
+# エディタ起動
+editor:
+	@echo "Starting code editor..."
+	cd dev/editor && docker compose up --build
+
 # ヘルプ
 help:
 	@echo "Available targets:"
