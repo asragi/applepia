@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mysql:
+    build: ./docker/mysql
+    image: ringo_mysql_local
+    environment:
+      - MYSQL_ROOT_PASSWORD=ringo
+    ports:
+      - "13306:3306"
+    volumes:
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pringo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4444:4444"
+      - "2345:2345"  # デバッガーポート
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=ringo
+      - DB_NAME=ringo
+      - SERVER_PORT=4444
+      - SECRET_KEY=secret
+    volumes:
+      - .:/app
+      - go_modules:/go/pkg/mod
+    networks:
+      - backend_network
+
+volumes:
+  mysql_data:
+  go_modules:
+
+networks:
+  backend_network:
+    driver: bridge

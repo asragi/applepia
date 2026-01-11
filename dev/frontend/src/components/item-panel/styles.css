@@ -1,0 +1,11 @@
+.list-panel {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-template-areas:
+		"top-left top-right"
+		"bottom-left bottom-right";
+
+	.stock {
+		grid-area: bottom-right;
+	}
+}
