@@ -22,6 +22,13 @@ cd dev/editor
 docker compose up --build
 ```
 
+### テスト実行
+
+```bash
+cd dev/editor
+docker compose run --rm editor yarn test:run
+```
+
 ## 機能
 
 - **アイテム/スキル/探索/ステージ**のマスタデータ編集
