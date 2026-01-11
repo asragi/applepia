@@ -240,12 +240,13 @@ func CreatePostAction(
 			args.exploreMaster.StaminaReducibleRate,
 			args.staminaReductionSkills,
 		)
+		totalRequiredStamina := requiredStamina.Multiply(args.execCount)
 		afterStaminaTime := core.CalcAfterStamina(
 			currentStaminaRecoverTime,
-			requiredStamina,
+			totalRequiredStamina,
 		)
 		currentFund := args.userFund
-		requiredCost := args.exploreMaster.RequiredPayment
+		requiredCost := args.exploreMaster.RequiredPayment.Multiply(args.execCount)
 		afterFund, err := currentFund.ReduceFund(requiredCost)
 		if err != nil {
 			return handleError(err)

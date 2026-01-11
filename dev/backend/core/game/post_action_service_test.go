@@ -103,12 +103,14 @@ func TestPostAction(t *testing.T) {
 	for _, v := range testCases {
 		expectedAfterFund := func() core.Fund {
 			currentFund := v.mocks.mockArgs.userFund
-			reduced, _ := currentFund.ReduceFund(v.mocks.mockCheckIsPossibleArgs.requiredPrice)
+			totalCost := v.mocks.mockCheckIsPossibleArgs.requiredPrice.Multiply(v.requestExecCount)
+			reduced, _ := currentFund.ReduceFund(totalCost)
 			return reduced
 		}()
+		totalStamina := mocks.mockStamina.Multiply(v.requestExecCount)
 		expectedAfterStamina := core.CalcAfterStamina(
 			mocks.mockArgs.userStamina,
-			mocks.mockStamina,
+			totalStamina,
 		)
 		expectedSkillInfo := convertToGrowthInfo(v.mocks.mockArgs.skillMaster, v.mocks.mockApplyGrowth)
 		expectedResult := &PostActionResult{
