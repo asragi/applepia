@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { fetchMaster, saveMaster } from "../../api/client.ts";
 import type { StageMaster } from "../../types/masters.ts";
 
@@ -7,6 +8,7 @@ export function useStagesPresenter() {
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	const loadData = useCallback(async () => {
 		setIsLoading(true);
@@ -43,9 +45,35 @@ export function useStagesPresenter() {
 		};
 	}, [loadData, data]);
 
-	const onSelect = useCallback((id: number) => {
-		setSelectedId((prev) => (prev === id ? null : id));
-	}, []);
+	const updateSelectedParam = useCallback(
+		(item: StageMaster | null) => {
+			setSearchParams((prev) => {
+				const next = new URLSearchParams(prev);
+				if (item) {
+					next.set("selected", String(item.stage_id));
+				} else {
+					next.delete("selected");
+				}
+				return next;
+			});
+		},
+		[setSearchParams]
+	);
+
+	const onSelect = useCallback(
+		(id: number) => {
+			setSelectedId((prev) => {
+				if (prev === id) {
+					updateSelectedParam(null);
+					return null;
+				}
+				const nextItem = data.find((item) => item.id === id) ?? null;
+				updateSelectedParam(nextItem);
+				return nextItem ? id : prev;
+			});
+		},
+		[data, updateSelectedParam]
+	);
 
 	const onUpdate = useCallback(
 		(id: number, field: keyof StageMaster, value: string | number) => {
@@ -59,11 +87,20 @@ export function useStagesPresenter() {
 		[]
 	);
 
-	const onDelete = useCallback((id: number) => {
-		setData((prev) => prev.filter((item) => item.id !== id));
-		setSelectedId((prev) => (prev === id ? null : prev));
-		window.dispatchEvent(new CustomEvent("editor:change"));
-	}, []);
+	const onDelete = useCallback(
+		(id: number) => {
+			setData((prev) => prev.filter((item) => item.id !== id));
+			setSelectedId((prev) => {
+				if (prev === id) {
+					updateSelectedParam(null);
+					return null;
+				}
+				return prev;
+			});
+			window.dispatchEvent(new CustomEvent("editor:change"));
+		},
+		[updateSelectedParam]
+	);
 
 	const onAdd = useCallback(() => {
 		const maxId = data.reduce((max, item) => Math.max(max, item.id), 0);
@@ -78,10 +115,33 @@ export function useStagesPresenter() {
 			description: "",
 		};
 		setData((prev) => [...prev, newItem]);
+		setSelectedId(newItem.id);
+		updateSelectedParam(newItem);
 		window.dispatchEvent(new CustomEvent("editor:change"));
-	}, [data]);
+	}, [data, updateSelectedParam]);
 
 	const selectedItem = data.find((item) => item.id === selectedId) ?? null;
+
+	useEffect(() => {
+		const selectedParam = searchParams.get("selected");
+		if (!selectedParam || data.length === 0) return;
+		const masterId = Number(selectedParam);
+		if (Number.isNaN(masterId)) return;
+
+		const record = data.find((item) => item.stage_id === masterId);
+		if (record) {
+			setSelectedId(record.id);
+		}
+	}, [searchParams, data]);
+
+	useEffect(() => {
+		if (selectedId === null) return;
+		const exists = data.some((item) => item.id === selectedId);
+		if (!exists) {
+			setSelectedId(null);
+			updateSelectedParam(null);
+		}
+	}, [data, selectedId, updateSelectedParam]);
 
 	return {
 		data,

@@ -1,22 +1,24 @@
-import { useState } from "react";
-import { DataTableView, type Column } from "../../components/data-table/index.tsx";
-import { DetailPanelView } from "../../components/detail-panel/index.tsx";
+import { useMemo, useState } from "react";
+import { RecordListView } from "../../components/record-list/index.tsx";
+import { RecordDetailView } from "../../components/record-detail/index.tsx";
+import { FieldEditorView } from "../../components/field-editor/index.tsx";
 import { RelationListView } from "../../components/relation-list/index.tsx";
 import { RelationEditorView } from "../../components/relation-editor/index.tsx";
+import { useNavigateToRecord } from "../../hooks/useNavigateToRecord.ts";
 import type { ExploreMaster } from "../../types/masters.ts";
 import { useExploresPresenter } from "./presenter.ts";
 
-const columns: Column<ExploreMaster>[] = [
-	{ key: "id", label: "ID", type: "number", width: "60px", editable: false },
-	{ key: "ExploreId", label: "ExploreID", type: "text", width: "100px" },
-	{ key: "DisplayName", label: "名前", type: "text", width: "150px" },
-	{ key: "Description", label: "説明", type: "text" },
-	{ key: "ConsumingStamina", label: "スタミナ", type: "number", width: "100px" },
-	{ key: "RequiredPayment", label: "費用", type: "number", width: "100px" },
-	{ key: "StaminaReducibleRate", label: "軽減率", type: "number", width: "80px" },
-];
-
 type ModalType = "earning" | "consuming" | "required" | "growth" | null;
+
+const fields: Array<{ key: keyof ExploreMaster; label: string; type: "text" | "number"; editable?: boolean }> = [
+	{ key: "id", label: "ID", type: "number", editable: false },
+	{ key: "ExploreId", label: "ExploreID", type: "number" },
+	{ key: "DisplayName", label: "名前", type: "text" },
+	{ key: "Description", label: "説明", type: "text" },
+	{ key: "ConsumingStamina", label: "スタミナ", type: "number" },
+	{ key: "RequiredPayment", label: "費用", type: "number" },
+	{ key: "StaminaReducibleRate", label: "軽減率", type: "number" },
+];
 
 export function ExploresView() {
 	const {
@@ -42,12 +44,32 @@ export function ExploresView() {
 		onAddGrowth,
 	} = useExploresPresenter();
 
+	const navigateToRecord = useNavigateToRecord();
 	const [modalType, setModalType] = useState<ModalType>(null);
 	const [modalValues, setModalValues] = useState<Record<string, number | string>>({});
 
 	const relatedData = getRelatedData();
 
+	const itemOptions = useMemo(
+		() =>
+			items.map((i) => ({
+				value: i.item_id,
+				label: i.DisplayName,
+			})),
+		[items]
+	);
+
+	const skillOptions = useMemo(
+		() =>
+			skills.map((s) => ({
+				value: s.SkillId,
+				label: s.DisplayName,
+			})),
+		[skills]
+	);
+
 	const handleOpenModal = (type: ModalType) => {
+		if (!selectedItem) return;
 		setModalType(type);
 		setModalValues({});
 	};
@@ -58,6 +80,8 @@ export function ExploresView() {
 	};
 
 	const handleSaveModal = () => {
+		if (!selectedItem) return;
+
 		if (modalType === "earning") {
 			onAddEarning(
 				Number(modalValues.itemId),
@@ -79,16 +103,6 @@ export function ExploresView() {
 		handleCloseModal();
 	};
 
-	const itemOptions = items.map((i) => ({
-		value: i.item_id,
-		label: i.DisplayName,
-	}));
-
-	const skillOptions = skills.map((s) => ({
-		value: s.SkillId,
-		label: s.DisplayName,
-	}));
-
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center h-full">
@@ -108,91 +122,83 @@ export function ExploresView() {
 	}
 
 	return (
-		<div className="flex flex-col h-full">
-			<div className="p-4 border-b border-base-300">
-				<h2 className="text-xl font-bold">探索マスタ</h2>
-				<p className="text-sm text-base-content/70">
-					{data.length} 件の探索
-				</p>
-			</div>
+		<div className="flex h-full">
+			<RecordListView
+				items={data}
+				selectedId={selectedId}
+				onSelect={onSelect}
+				onAdd={onAdd}
+				getDisplayName={(item) => item.DisplayName}
+			/>
 
-			<div className="flex-1 overflow-auto">
-				<DataTableView
-					columns={columns}
-					data={data}
-					selectedId={selectedId}
-					onSelect={onSelect}
-					onUpdate={onUpdate}
-					onDelete={onDelete}
-					onAdd={onAdd}
-				/>
-			</div>
+			<div className="flex-1 flex flex-col bg-base-100">
+				{selectedItem ? (
+					<RecordDetailView
+						title={selectedItem.DisplayName}
+						onDelete={() => onDelete(selectedItem.id)}
+					>
+						<FieldEditorView
+							fields={fields}
+							values={selectedItem}
+							onUpdate={(key, value) =>
+								onUpdate(selectedItem.id, key as keyof ExploreMaster, value)
+							}
+						/>
 
-			{selectedItem && (
-				<DetailPanelView
-					title={`${selectedItem.DisplayName} の詳細`}
-					onClose={() => onSelect(selectedItem.id)}
-				>
-					<div className="grid grid-cols-2 gap-4 mb-6">
-						<div>
-							<span className="text-sm text-base-content/70">ID</span>
-							<p className="font-mono">{selectedItem.id}</p>
+						<div className="border-t border-base-300 pt-4">
+							<h4 className="font-bold mb-4">関連データ</h4>
+
+							<RelationListView
+								title="獲得アイテム"
+								items={relatedData.earning}
+								onItemClick={(id) => {
+									const target = relatedData.earning.find((e) => e.id === id);
+									if (target) navigateToRecord("items", target.itemId);
+								}}
+								onRemove={onRemoveEarning}
+								onAdd={() => handleOpenModal("earning")}
+							/>
+
+							<RelationListView
+								title="消費アイテム"
+								items={relatedData.consuming}
+								onItemClick={(id) => {
+									const target = relatedData.consuming.find((e) => e.id === id);
+									if (target) navigateToRecord("items", target.itemId);
+								}}
+								onRemove={onRemoveConsuming}
+								onAdd={() => handleOpenModal("consuming")}
+							/>
+
+							<RelationListView
+								title="必要スキル"
+								items={relatedData.required}
+								onItemClick={(id) => {
+									const target = relatedData.required.find((e) => e.id === id);
+									if (target) navigateToRecord("skills", target.skillId);
+								}}
+								onRemove={onRemoveRequired}
+								onAdd={() => handleOpenModal("required")}
+							/>
+
+							<RelationListView
+								title="スキル成長"
+								items={relatedData.growth}
+								onItemClick={(id) => {
+									const target = relatedData.growth.find((e) => e.id === id);
+									if (target) navigateToRecord("skills", target.skillId);
+								}}
+								onRemove={onRemoveGrowth}
+								onAdd={() => handleOpenModal("growth")}
+							/>
 						</div>
-						<div>
-							<span className="text-sm text-base-content/70">ExploreID</span>
-							<p className="font-mono">{selectedItem.ExploreId}</p>
-						</div>
-						<div>
-							<span className="text-sm text-base-content/70">消費スタミナ</span>
-							<p>{selectedItem.ConsumingStamina}</p>
-						</div>
-						<div>
-							<span className="text-sm text-base-content/70">必要費用</span>
-							<p>{selectedItem.RequiredPayment.toLocaleString()} G</p>
-						</div>
-						<div className="col-span-2">
-							<span className="text-sm text-base-content/70">説明</span>
-							<p>{selectedItem.Description || "(なし)"}</p>
-						</div>
+					</RecordDetailView>
+				) : (
+					<div className="flex-1 flex items-center justify-center text-base-content/60">
+						左のリストから探索を選択してください
 					</div>
-
-					<div className="border-t border-base-300 pt-4">
-						<h4 className="font-bold mb-4">関連データ</h4>
-
-						<RelationListView
-							title="獲得アイテム"
-							items={relatedData.earning}
-							onItemClick={() => {}}
-							onRemove={onRemoveEarning}
-							onAdd={() => handleOpenModal("earning")}
-						/>
-
-						<RelationListView
-							title="消費アイテム"
-							items={relatedData.consuming}
-							onItemClick={() => {}}
-							onRemove={onRemoveConsuming}
-							onAdd={() => handleOpenModal("consuming")}
-						/>
-
-						<RelationListView
-							title="必要スキル"
-							items={relatedData.required}
-							onItemClick={() => {}}
-							onRemove={onRemoveRequired}
-							onAdd={() => handleOpenModal("required")}
-						/>
-
-						<RelationListView
-							title="スキル成長"
-							items={relatedData.growth}
-							onItemClick={() => {}}
-							onRemove={onRemoveGrowth}
-							onAdd={() => handleOpenModal("growth")}
-						/>
-					</div>
-				</DetailPanelView>
-			)}
+				)}
+			</div>
 
 			{modalType === "earning" && (
 				<RelationEditorView

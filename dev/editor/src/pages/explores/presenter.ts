@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { fetchMaster, saveMaster, fetchRelation, saveRelation } from "../../api/client.ts";
 import type { ExploreMaster, ItemMaster, SkillMaster } from "../../types/masters.ts";
 import type { EarningItem, ConsumingItem, RequiredSkill, SkillGrowth } from "../../types/relations.ts";
@@ -14,6 +15,7 @@ export function useExploresPresenter() {
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	const loadData = useCallback(async () => {
 		setIsLoading(true);
@@ -71,9 +73,35 @@ export function useExploresPresenter() {
 		};
 	}, [loadData, data, earningItems, consumingItems, requiredSkills, skillGrowth]);
 
-	const onSelect = useCallback((id: number) => {
-		setSelectedId((prev) => (prev === id ? null : id));
-	}, []);
+	const updateSelectedParam = useCallback(
+		(item: ExploreMaster | null) => {
+			setSearchParams((prev) => {
+				const next = new URLSearchParams(prev);
+				if (item && typeof item.ExploreId === "number") {
+					next.set("selected", String(item.ExploreId));
+				} else {
+					next.delete("selected");
+				}
+				return next;
+			});
+		},
+		[setSearchParams]
+	);
+
+	const onSelect = useCallback(
+		(id: number) => {
+			setSelectedId((prev) => {
+				if (prev === id) {
+					updateSelectedParam(null);
+					return null;
+				}
+				const nextItem = data.find((item) => item.id === id) ?? null;
+				updateSelectedParam(nextItem ?? null);
+				return nextItem ? id : prev;
+			});
+		},
+		[data, updateSelectedParam]
+	);
 
 	const onUpdate = useCallback(
 		(id: number, field: keyof ExploreMaster, value: string | number) => {
@@ -87,11 +115,20 @@ export function useExploresPresenter() {
 		[]
 	);
 
-	const onDelete = useCallback((id: number) => {
-		setData((prev) => prev.filter((item) => item.id !== id));
-		setSelectedId((prev) => (prev === id ? null : prev));
-		window.dispatchEvent(new CustomEvent("editor:change"));
-	}, []);
+	const onDelete = useCallback(
+		(id: number) => {
+			setData((prev) => prev.filter((item) => item.id !== id));
+			setSelectedId((prev) => {
+				if (prev === id) {
+					updateSelectedParam(null);
+					return null;
+				}
+				return prev;
+			});
+			window.dispatchEvent(new CustomEvent("editor:change"));
+		},
+		[updateSelectedParam]
+	);
 
 	const onAdd = useCallback(() => {
 		const maxId = data.reduce((max, item) => Math.max(max, item.id), 0);
@@ -112,10 +149,35 @@ export function useExploresPresenter() {
 			StaminaReducibleRate: 0.5,
 		};
 		setData((prev) => [...prev, newItem]);
+		setSelectedId(newItem.id);
+		updateSelectedParam(newItem);
 		window.dispatchEvent(new CustomEvent("editor:change"));
-	}, [data]);
+	}, [data, updateSelectedParam]);
 
 	const selectedItem = data.find((item) => item.id === selectedId) ?? null;
+
+	useEffect(() => {
+		const selectedParam = searchParams.get("selected");
+		if (!selectedParam || data.length === 0) return;
+		const masterId = Number(selectedParam);
+		if (Number.isNaN(masterId)) return;
+
+		const record = data.find(
+			(item) => typeof item.ExploreId === "number" && item.ExploreId === masterId
+		);
+		if (record) {
+			setSelectedId(record.id);
+		}
+	}, [searchParams, data]);
+
+	useEffect(() => {
+		if (selectedId === null) return;
+		const exists = data.some((item) => item.id === selectedId);
+		if (!exists) {
+			setSelectedId(null);
+			updateSelectedParam(null);
+		}
+	}, [data, selectedId, updateSelectedParam]);
 
 	// 選択中探索の関連データを取得
 	const getRelatedData = useCallback(() => {

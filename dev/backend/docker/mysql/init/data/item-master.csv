@@ -55,3 +55,4 @@ id,item_id,DisplayName,Description,Price,MaxStock,Attraction,PurchaseProb
 54,54,木材,仮置き,9,9,100,0.5
 55,55,鉄骨,仮置き,9,9,100,0.5
 56,56,溶鉱炉,仮置き,9,9,100,0.5
+57,57,ガラスの瓶,仮置き,100,100,100,0.5
