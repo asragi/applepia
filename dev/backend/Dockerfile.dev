@@ -1,0 +1,25 @@
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+# 必要なパッケージをインストール
+RUN apk add --no-cache git bash
+
+# Air（ホットリロードツール）とDelve（デバッガー）をインストール
+# go1.22に合わせてDelveのバージョンを固定
+RUN go install github.com/air-verse/air@v1.52.3 && \
+    go install github.com/go-delve/delve/cmd/dlv@v1.23.1
+
+# Wire CLIをインストール
+RUN go install github.com/google/wire/cmd/wire@v0.6.0
+
+# 依存関係ファイルをコピー
+COPY go.mod go.sum ./
+COPY pb/ ./pb/
+RUN go mod download
+
+# ポート公開（アプリケーション用とデバッガー用）
+EXPOSE 4444 2345
+
+# Airでホットリロード実行
+CMD ["air", "-c", ".air.toml"]
