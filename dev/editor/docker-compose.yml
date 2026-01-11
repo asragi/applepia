@@ -1,0 +1,14 @@
+services:
+  editor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5174"
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ../backend/docker/mysql/init/data:/data
+    environment:
+      - CSV_DATA_PATH=/data
